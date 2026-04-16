@@ -32,6 +32,11 @@ int main(int argc, char const *argv[])
     const unsigned int iterations = atoi(argv[3]);
     const float epsilon = atof(argv[4]);
     const unsigned int thread_number = atof(argv[5]);
+
+    printf("Ordem do Sistema: %d X %d\n", A.rows_number(), A.cols_number());
+    printf("Maximo de Iteracoes: %d\n", iterations);
+    printf("Epsilon: %f\n", epsilon);
+    printf("Numero de Threads: %d\n", thread_number);
 }
 
 int load_vector(string filename, vector<float> &vec)
