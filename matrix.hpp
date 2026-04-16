@@ -42,19 +42,27 @@ Formato de arquivo para Vetor: M = 1
 template <typename K>
 Matrix<K>::Matrix(string filename)
 {
-    ifstream fileInput(filename, ios::in);
-    string line;
-
-    if (fileInput.is_open())
+    FILE *fp = freopen(filename.c_str(), "r", stdin);
+    if (fp != nullptr)
     {
-        while (getline(fileInput, line))
+        unsigned int row_input, col_input;
+        float value;
+
+        scanf("%ux%u\n", &row_input, &col_input);
+        this->rows = row_input;
+        this->cols = col_input;
+
+        while (scanf("%f;", &value) != EOF)
         {
-            // scanf
+            this->matrix.push_back(value);
         }
-        fileInput.close();
     }
     else
+    {
         cout << "Nao foi possivel abrir o arquivo: " << filename << endl;
+    }
+
+    fclose(fp);
 }
 
 // template <typename K>

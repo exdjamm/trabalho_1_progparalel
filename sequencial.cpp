@@ -9,7 +9,7 @@
 
 using namespace std;
 
-int load_vector(string filename, vector<float> vec);
+int load_vector(string filename, vector<float> &vec);
 
 int main(int argc, char const *argv[])
 {
@@ -29,23 +29,29 @@ int main(int argc, char const *argv[])
 
     const unsigned int iterations = atoi(argv[3]);
     const float epsilon = atof(argv[4]);
-
-    // printf("%s, %s, %s, %s\n", argv[1], argv[2], argv[3], argv[4]);
 }
 
-int load_vector(string filename, vector<float> vec)
+int load_vector(string filename, vector<float> &vec)
 {
-    ifstream fileInput(filename, ios::in);
-    string line;
-
-    if (fileInput.is_open())
+    FILE *fp = freopen(filename.c_str(), "r", stdin);
+    if (fp == nullptr)
     {
-        while (getline(fileInput, line))
-        {
-            // scanf
-        }
-        fileInput.close();
-    }
-    else
         cout << "Nao foi possivel abrir o arquivo: " << filename << endl;
+        return 1;
+    }
+
+    string line;
+    unsigned int row_input, col_input;
+    float value;
+
+    scanf("%ux%u\n", &row_input, &col_input);
+
+    while (scanf("%f;", &value) != EOF)
+    {
+        // cout << value << endl;
+        vec.push_back(value);
+    }
+
+    fclose(fp);
+    return 0;
 }
