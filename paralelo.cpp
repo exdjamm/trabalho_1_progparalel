@@ -1,6 +1,8 @@
 #include <omp.h>
 
-#include <ctype.h>
+#include <iostream>
+#include <vector>
+#include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -17,26 +19,74 @@ int main(int argc, char const *argv[])
 {
     if (argc != ARG_NUMBER)
     {
-        cout << "./sequencial.run file_matrix_A file_vector_B iterations epsilon thread_number" << endl;
+        cout << "./paralelo.run file_matrix_A file_vector_B iterations epsilon thread_number" << endl;
         exit(EXIT_FAILURE);
     }
-    // Matrix use classe pois precisa armazenar coluna e linha para acesso.
+
     Matrix<float> A(argv[1]);
-    vector<float> B, X;
+    vector<float> B, X, X_new;
 
     if (load_vector(argv[2], B))
         exit(EXIT_FAILURE);
 
     X.assign(B.size(), 0.0);
+    X_new.assign(B.size(), 0.0);
 
     const unsigned int iterations = atoi(argv[3]);
     const float epsilon = atof(argv[4]);
-    const unsigned int thread_number = atof(argv[5]);
+    const unsigned int thread_number = atoi(argv[5]);
+
+    omp_set_num_threads(thread_number);
 
     printf("Ordem do Sistema: %d X %d\n", A.rows_number(), A.cols_number());
     printf("Maximo de Iteracoes: %d\n", iterations);
     printf("Epsilon: %f\n", epsilon);
     printf("Numero de Threads: %d\n", thread_number);
+
+    unsigned int n = B.size();
+    float error;
+    unsigned int iter = 0;
+
+    do {
+        error = 0.0;
+
+        #pragma omp parallel for
+        for (int i = 0; i < n; i++)
+        {
+            float sum = 0.0;
+
+            for (int j = 0; j < n; j++)
+            {
+                if (j != i)
+                {
+                    sum += A.get(i, j) * X[j];
+                }
+            }
+
+            X_new[i] = (B[i] - sum) / A.get(i, i);
+        }
+
+        #pragma omp parallel for reduction(+:error)
+        for (int i = 0; i < n; i++)
+        {
+            error += fabs(X_new[i] - X[i]);
+            X[i] = X_new[i];
+        }
+
+        iter++;
+
+    } while (error > epsilon && iter < iterations);
+
+    printf("\nSolução encontrada:\n");
+    for (int i = 0; i < n; i++)
+    {
+        printf("x[%d] = %f\n", i, X[i]);
+    }
+
+    printf("Iteracoes: %d\n", iter);
+    printf("Erro final: %f\n", error);
+
+    return 0;
 }
 
 int load_vector(string filename, vector<float> &vec)
@@ -48,7 +98,6 @@ int load_vector(string filename, vector<float> &vec)
         return 1;
     }
 
-    string line;
     unsigned int row_input, col_input;
     float value;
 
@@ -56,7 +105,6 @@ int load_vector(string filename, vector<float> &vec)
 
     while (scanf("%f;", &value) != EOF)
     {
-        // cout << value << endl;
         vec.push_back(value);
     }
 
