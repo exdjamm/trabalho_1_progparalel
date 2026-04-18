@@ -9,11 +9,11 @@
 #include "vector.hpp"
 #include "matrix.hpp"
 
-#define ARG_NUMBER 6
+#define ARG_NUMBER 5
 
 using namespace std;
 
-int load_vector(string filename, vector<float> &vec);
+int load_file(string filename, Matrix<float> &A, vector<float> &vec);
 
 int main(int argc, char const *argv[])
 {
@@ -23,21 +23,18 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-    Matrix<float> A(argv[1]);
+    Matrix<float> A;
     vector<float> B, X, X_new;
 
-    if (A.fail_load)
-        exit(EXIT_FAILURE);
-
-    if (load_vector(argv[2], B))
+    if (load_file(argv[1], A, B))
         exit(EXIT_FAILURE);
 
     X.assign(B.size(), 0.0);
     X_new.assign(B.size(), 0.0);
 
-    const unsigned int iterations = atoi(argv[3]);
-    const float epsilon = atof(argv[4]);
-    const unsigned int thread_number = atoi(argv[5]);
+    const unsigned int iterations = atoi(argv[2]);
+    const float epsilon = atof(argv[3]);
+    const unsigned int thread_number = atoi(argv[4]);
 
     omp_set_num_threads(thread_number);
 
@@ -100,7 +97,7 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-int load_vector(string filename, vector<float> &vec)
+int load_file(string filename, Matrix<float> &A, vector<float> &vec)
 {
     FILE *fp = freopen(filename.c_str(), "r", stdin);
     if (fp == nullptr)
@@ -109,13 +106,26 @@ int load_vector(string filename, vector<float> &vec)
         return 1;
     }
 
+    string line;
     unsigned int row_input, col_input;
     float value;
 
     scanf("%ux%u\n", &row_input, &col_input);
 
-    while (scanf("%f;", &value) != EOF)
+    A.set_cols_number(col_input);
+    A.set_rows_number(row_input);
+
+    for (size_t i = 0; i < row_input * col_input; i++)
     {
+        scanf("%f;", &value);
+        A.push(value);
+    }
+
+    scanf("%ux%u\n", &row_input, &col_input);
+
+    for (size_t i = 0; i < row_input * col_input; i++)
+    {
+        scanf("%f;", &value);
         vec.push_back(value);
     }
 

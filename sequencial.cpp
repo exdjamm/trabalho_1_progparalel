@@ -9,34 +9,31 @@
 #include "vector.hpp"
 #include "matrix.hpp"
 
-#define ARG_NUMBER 5
+#define ARG_NUMBER 4
 
 using namespace std;
 
-int load_vector(string filename, vector<float> &vec);
+int load_file(string filename, Matrix<float> &A, vector<float> &vec);
 
 int main(int argc, char const *argv[])
 {
     if (argc != ARG_NUMBER)
     {
-        cout << "./sequencial.run file_matrix_A file_vector_B iterations epsilon" << endl;
+        cout << "./sequencial.run file_lin_system iterations epsilon" << endl;
         exit(EXIT_FAILURE);
     }
     // Matrix use classe pois precisa armazenar coluna e linha para acesso.
-    Matrix<float> A(argv[1]);
+    Matrix<float> A;
     vector<float> B, X, X_k;
 
-    if (A.fail_load)
-        exit(EXIT_FAILURE);
-
-    if (load_vector(argv[2], B))
+    if (load_file(argv[1], A, B))
         exit(EXIT_FAILURE);
 
     X.assign(B.size(), 0.0f);
     X_k.assign(B.size(), 0.0f);
 
-    const unsigned int iterations = atoi(argv[3]);
-    const float epsilon = atof(argv[4]);
+    const unsigned int iterations = atoi(argv[2]);
+    const float epsilon = atof(argv[3]);
 
     printf("Ordem do Sistema: %d X %d\n", A.rows_number(), A.cols_number());
     printf("Maximo de Iteracoes: %d\n", iterations);
@@ -88,9 +85,11 @@ int main(int argc, char const *argv[])
     printf("Iteracoes: %d\n", iter);
     printf("Delta X: %f\n", error);
     printf("Tempo: %.3fus\n", exec_time);
+
+    return 0;
 }
 
-int load_vector(string filename, vector<float> &vec)
+int load_file(string filename, Matrix<float> &A, vector<float> &vec)
 {
     FILE *fp = freopen(filename.c_str(), "r", stdin);
     if (fp == nullptr)
@@ -105,9 +104,20 @@ int load_vector(string filename, vector<float> &vec)
 
     scanf("%ux%u\n", &row_input, &col_input);
 
-    while (scanf("%f;", &value) != EOF)
+    A.set_cols_number(col_input);
+    A.set_rows_number(row_input);
+
+    for (size_t i = 0; i < row_input * col_input; i++)
     {
-        // cout << value << endl;
+        scanf("%f;", &value);
+        A.push(value);
+    }
+
+    scanf("%ux%u\n", &row_input, &col_input);
+
+    for (size_t i = 0; i < row_input * col_input; i++)
+    {
+        scanf("%f;", &value);
         vec.push_back(value);
     }
 

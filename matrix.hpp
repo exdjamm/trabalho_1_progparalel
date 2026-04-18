@@ -21,16 +21,20 @@ private:
     unsigned int rows;
 
 public:
-    Matrix(string filename);
+    Matrix(/* string filename */);
     // ~Matrix();
 
-    unsigned int fail_load = 0;
+    // unsigned int fail_load = 0;
 
     void set(unsigned int row, unsigned int col, K value);
     K get(unsigned int row, unsigned int col);
+    void push(K value);
 
     unsigned int cols_number();
     unsigned int rows_number();
+
+    void set_cols_number(unsigned int);
+    void set_rows_number(unsigned int);
 };
 
 /*
@@ -42,31 +46,31 @@ Formato de arquivo para Vetor: M = 1
 */
 
 template <typename K>
-Matrix<K>::Matrix(string filename)
+Matrix<K>::Matrix(/* string filename */)
 {
-    FILE *fp = freopen(filename.c_str(), "r", stdin);
-    if (fp != nullptr)
-    {
-        unsigned int row_input, col_input;
-        float value;
+    // FILE *fp = freopen(filename.c_str(), "r", stdin);
+    // if (fp != nullptr)
+    // {
+    //     unsigned int row_input, col_input;
+    //     float value;
 
-        scanf("%ux%u\n", &row_input, &col_input);
-        this->rows = row_input;
-        this->cols = col_input;
+    //     scanf("%ux%u\n", &row_input, &col_input);
+    //     this->rows = row_input;
+    //     this->cols = col_input;
 
-        while (scanf("%f;", &value) != EOF)
-        {
-            this->matrix.push_back(value);
-        }
-        this->fail_load = 0;
+    //     while (scanf("%f;", &value) != EOF)
+    //     {
+    //         this->matrix.push_back(value);
+    //     }
+    //     this->fail_load = 0;
 
-        fclose(fp);
-    }
-    else
-    {
-        cout << "Nao foi possivel abrir o arquivo: " << filename << endl;
-        this->fail_load = 1;
-    }
+    //     fclose(fp);
+    // }
+    // else
+    // {
+    //     cout << "Nao foi possivel abrir o arquivo: " << filename << endl;
+    //     this->fail_load = 1;
+    // }
 }
 
 // template <typename K>
@@ -74,6 +78,24 @@ Matrix<K>::Matrix(string filename)
 // {
 //     delete[] this->matrix;
 // }
+
+template <typename K>
+void Matrix<K>::push(K value)
+{
+    this->matrix.push_back(value);
+}
+
+template <typename K>
+void Matrix<K>::set_cols_number(unsigned int value)
+{
+    this->cols = value;
+}
+
+template <typename K>
+void Matrix<K>::set_rows_number(unsigned int value)
+{
+    this->rows = value;
+}
 
 template <typename K>
 void Matrix<K>::set(unsigned int row, unsigned int col, K value)
