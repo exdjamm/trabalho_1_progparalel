@@ -24,6 +24,8 @@ public:
     Matrix(string filename);
     // ~Matrix();
 
+    unsigned int fail_load = 0;
+
     void set(unsigned int row, unsigned int col, K value);
     K get(unsigned int row, unsigned int col);
 
@@ -56,10 +58,12 @@ Matrix<K>::Matrix(string filename)
         {
             this->matrix.push_back(value);
         }
+        this->fail_load = 0;
     }
     else
     {
         cout << "Nao foi possivel abrir o arquivo: " << filename << endl;
+        this->fail_load = 1;
     }
 
     fclose(fp);
