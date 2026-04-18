@@ -26,6 +26,9 @@ int main(int argc, char const *argv[])
     Matrix<float> A(argv[1]);
     vector<float> B, X, X_new;
 
+    if (A.fail_load)
+        exit(EXIT_FAILURE);
+
     if (load_vector(argv[2], B))
         exit(EXIT_FAILURE);
 
