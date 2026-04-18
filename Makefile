@@ -4,7 +4,7 @@ gpp_flags = -O3
 all: sequencial paralelo
 
 sequencial: sequencial.cpp
-	$(gpp) $(gpp_flags) $<  -o $@.run
+	$(gpp) $(gpp_flags) --openmp $<  -o $@.run
 
 paralelo: paralelo.cpp
 	$(gpp) $(gpp_flags) --openmp $<  -o $@.run

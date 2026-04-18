@@ -50,6 +50,9 @@ int main(int argc, char const *argv[])
     float error;
     unsigned int iter = 0;
 
+    double itime, ftime, exec_time;
+    itime = omp_get_wtime();
+
     do
     {
         error = 0.0;
@@ -81,6 +84,9 @@ int main(int argc, char const *argv[])
 
     } while (error > epsilon && iter < iterations);
 
+    ftime = omp_get_wtime();
+    exec_time = (ftime - itime) * 1000 * 1000;
+
     printf("\nSolução encontrada:\n");
     for (int i = 0; i < n; i++)
     {
@@ -89,6 +95,7 @@ int main(int argc, char const *argv[])
 
     printf("Iteracoes: %d\n", iter);
     printf("Delta X: %f\n", error);
+    printf("Tempo: %.3fus\n", exec_time);
 
     return 0;
 }

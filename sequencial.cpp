@@ -1,3 +1,5 @@
+#include <omp.h>
+
 #include <cmath>
 #include <ctype.h>
 
@@ -43,6 +45,8 @@ int main(int argc, char const *argv[])
     unsigned int iter = 0;
     float error, sum;
 
+    double itime, ftime, exec_time;
+    itime = omp_get_wtime();
     do
     {
         // Somatorio
@@ -71,6 +75,9 @@ int main(int argc, char const *argv[])
         iter++;
     } while (iter < iterations && epsilon < error);
 
+    ftime = omp_get_wtime();
+    exec_time = (ftime - itime) * 1000 * 1000;
+
     cout << "X = ";
     for (size_t i = 0; i < X.size(); i++)
     {
@@ -80,6 +87,7 @@ int main(int argc, char const *argv[])
 
     printf("Iteracoes: %d\n", iter);
     printf("Delta X: %f\n", error);
+    printf("Tempo: %.3fus\n", exec_time);
 }
 
 int load_vector(string filename, vector<float> &vec)
