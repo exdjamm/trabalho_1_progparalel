@@ -59,14 +59,14 @@ Matrix<K>::Matrix(string filename)
             this->matrix.push_back(value);
         }
         this->fail_load = 0;
+
+        fclose(fp);
     }
     else
     {
         cout << "Nao foi possivel abrir o arquivo: " << filename << endl;
         this->fail_load = 1;
     }
-
-    fclose(fp);
 }
 
 // template <typename K>
