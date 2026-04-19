@@ -73,7 +73,7 @@ int main(int argc, char const *argv[])
     } while (iter < iterations && epsilon < error);
 
     ftime = omp_get_wtime();
-    exec_time = (ftime - itime) * 1000 * 1000;
+    exec_time = (ftime - itime) * 1000;
 
     cout << "X = ";
     for (size_t i = 0; i < X.size(); i++)
@@ -84,7 +84,7 @@ int main(int argc, char const *argv[])
 
     printf("Iteracoes: %d\n", iter);
     printf("Delta X: %f\n", error);
-    printf("Tempo: %.3fus\n", exec_time);
+    printf("Tempo: %.3fms\n", exec_time);
 
     return 0;
 }
