@@ -54,7 +54,7 @@ int main(int argc, char const *argv[])
     {
         error = 0.0;
 
-#pragma omp parallel for
+#pragma omp parallel for default(private) shared(A, B, X, X_new, n) schedule(static)
         for (int i = 0; i < n; i++)
         {
             float sum = 0.0;
@@ -70,12 +70,13 @@ int main(int argc, char const *argv[])
             X_new[i] = (B[i] - sum) / A.get(i, i);
         }
 
-#pragma omp parallel for reduction(+ : error)
+#pragma omp parallel for default(private) shared(A, B, X, X_new, n) schedule(static) reduction(+ : error)
         for (int i = 0; i < n; i++)
         {
             error += powf(X_new[i] - X[i], 2);
             X[i] = X_new[i];
         }
+
         error = sqrt(error);
         iter++;
 
