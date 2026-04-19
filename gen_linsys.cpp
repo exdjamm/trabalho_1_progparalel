@@ -1,65 +1,70 @@
-#include <omp.h>
-
-#include <cmath>
-#include <ctype.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-
 #include <iostream>
-#include <string>
 #include <fstream>
-
-#include <time.h>
-
 #include <vector>
-
-#define ARG_NUMBER 2
-#define MAX_NUMBER 100
+#include <cstdlib>
+#include <cmath>
+#include <ctime>
 
 using namespace std;
 
-int main(int argc, char const *argv[])
+#define MAX_NUMBER 5.0
+
+int main(int argc, char* argv[])
 {
-    if (argc != ARG_NUMBER)
+    if (argc != 3)
     {
-        cout << "./gen_linsys.run order" << endl;
-        exit(EXIT_FAILURE);
+        cout << "./gen.run N output.txt\n";
+        return 1;
     }
 
-    vector<float> X, B;
-    const unsigned int N = atoi(argv[1]);
-    float value, sum;
+    int N = atoi(argv[1]);
+    ofstream file(argv[2]);
 
     srand(time(NULL));
 
-    printf("%dx%d\n", N, N);
+    vector<float> X(N), B(N);
 
-    for (size_t j = 0; j < N; j++)
-    {
-        value = ((((float)rand()) / (float)RAND_MAX) - 0.5) * MAX_NUMBER;
-        X.push_back(value);
-    }
+    for (int i = 0; i < N; i++)
+        X[i] = ((float)rand() / RAND_MAX) * 10;
 
-    for (size_t i = 0; i < N; i++)
+    file << N << "x" << N << "\n";
+
+    for (int i = 0; i < N; i++)
     {
-        sum = 0;
-        for (size_t j = 0; j < N; j++)
+        vector<float> row(N);
+        float sum = 0.0;
+        float row_sum = 0.0;
+
+        for (int j = 0; j < N; j++)
         {
-            value = ((((float)rand()) / (float)RAND_MAX) - 0.5) * MAX_NUMBER;
-            printf("%f; ", value);
-            sum += X[j] * value;
+            if (j != i)
+            {
+                float val = ((float)rand() / RAND_MAX) * MAX_NUMBER;
+                row[j] = val;
+                row_sum += fabs(val);
+                sum += val * X[j];
+            }
         }
-        B.push_back(sum);
-    }
-    printf("\n");
 
-    printf("%dx%d\n", N, 1);
+        row[i] = row_sum + 1.0;
+        sum += row[i] * X[i];
 
-    for (size_t j = 0; j < N; j++)
-    {
-        printf("%f; ", B[j]);
+        B[i] = sum;
+
+        for (int j = 0; j < N; j++)
+            file << row[j] << "; ";
+        file << "\n";
     }
-    printf("\n");
+
+    file << N << "x1\n";
+
+    for (int i = 0; i < N; i++)
+        file << B[i] << "; ";
+
+    file << "\n";
+
+    file.close();
+
+    cout << "Arquivo gerado com sucesso!\n";
     return 0;
 }
