@@ -84,11 +84,12 @@ int main(int argc, char const *argv[])
     ftime = omp_get_wtime();
     exec_time = (ftime - itime) * 1000;
 
-    printf("\nSolução encontrada:\n");
+    printf("X = (");
     for (int i = 0; i < n; i++)
     {
-        printf("x[%d] = %f\n", i, X[i]);
+        printf("%f, ", X[i]);
     }
+    printf(")\n");
 
     printf("Iteracoes: %d\n", iter);
     printf("Delta X: %f\n", error);
