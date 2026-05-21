@@ -72,8 +72,17 @@ int main(int argc, char const *argv[])
     unsigned int n = B.size();
     unsigned int iter = 0;
 
-    float error;    // Host
-    float *d_error; // Device
+    float error;               // Host
+    float *error_array = NULL; // Host
+    float *d_error;            // Device
+
+    error_array = (float *)calloc(sizeof(float), block_number);
+    if (error_array == NULL)
+        goto ERROR;
+
+    cudaMalloc((void **)&d_error, sizeof(float) * block_number);
+
+    // TODO: Fazer a copia de valores.
 
     // Todo trabalho realizado na GPU, somente copia X ao final.
     init_timer();
