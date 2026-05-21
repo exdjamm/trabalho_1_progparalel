@@ -114,8 +114,17 @@ int main(int argc, char const *argv[])
     cudaFree(d_B);
     cudaFree(d_X);
     cudaFree(d_X_new);
+    cudaFree(d_error);
+    free(error_array);
 
     return 0;
+
+ERROR:
+    cudaFree(d_A);
+    cudaFree(d_B);
+    cudaFree(d_X);
+    cudaFree(d_X_new);
+    exit(EXIT_FAILURE);
 }
 
 __global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new)
