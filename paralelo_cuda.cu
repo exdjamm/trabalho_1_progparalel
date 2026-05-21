@@ -22,8 +22,8 @@ void finish_timer();
 
 int load_file(string filename, Matrix<float> &A, vector<float> &vec);
 
-__global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new);
-__global__ void CalculateErrorUpdateXKernel(float *X, float *X_new, float *error);
+__global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new, size_t x_size);
+__global__ void CalculateErrorUpdateXKernel(float *X, float *X_new, float *error, size_t x_size);
 
 int main(int argc, char const *argv[])
 {
