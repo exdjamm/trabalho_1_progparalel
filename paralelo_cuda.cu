@@ -54,7 +54,7 @@ int main(int argc, char const *argv[])
     const float epsilon = atof(argv[3]);
     const unsigned int thread_number = atoi(argv[4]);
 
-    // TODO: Decidir com sera divido os blocos
+    // TODO: Decidir como sera divido os blocos
     const unsigned int block_number = (B.size() + thread_number - 1) / thread_number;
 
     printf("Ordem do Sistema: %d X %d\n", A.rows_number(), A.cols_number());
@@ -89,16 +89,30 @@ int main(int argc, char const *argv[])
     do
     {
         error = 0;
-        cudaMemcpy(d_error, &error, sizeof(float), cudaMemcpyHostToDevice);
+        CalculateXNewKernel<<<block_number, thread_number>>>(d_A, d_B, d_X, d_X_new, n);
         cudaDeviceSynchronize();
+
+        CalculateErrorUpdateXKernel<<<block_number, thread_number>>>(d_X, d_X_new, d_error, n);
+        cudaDeviceSynchronize();
+
+        cudaMemcpy(&error_array, d_error, sizeof(float) * block_number, cudaMemcpyDeviceToHost);
+        cudaDeviceSynchronize();
+
+        for (size_t i = 0; i < block_number; i++)
+        {
+            error += error_array[i];
+        }
+        error = sqrtf(error);
+        // cudaMemcpy(d_error, &error, sizeof(float), cudaMemcpyHostToDevice);
+        // cudaDeviceSynchronize();
 
         // CalculateNewXKernel<<BLOCKS, THREADS>>(PARAMS);
 
         // cudaMemcpy(X_new.data(), d_X_new, sizeof(float) * X.size(), cudaMemcpyDeviceToHost);
 
         // CalculateErrorUpdateXKernel<<BLOCKS, THREADS>>(PARAMS);
-        cudaMemcpy(&error, d_error, sizeof(float), cudaMemcpyDeviceToHost);
-        cudaDeviceSynchronize();
+        // cudaMemcpy(&error, d_error, sizeof(float) * block_number, cudaMemcpyDeviceToHost);
+        // cudaDeviceSynchronize();
 
         iter++;
     } while (iter < iterations && epsilon < error);
