@@ -127,13 +127,13 @@ ERROR:
     exit(EXIT_FAILURE);
 }
 
-__global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new)
+__global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new, size_t x_size)
 {
     // Talvez fazer sum ser um variavel _shared
     // ou fazer cada kernel calcular seu proprio sum
 }
 
-__global__ void CalculateErrorUpdateXKernel(float *X, float *X_new, float *error)
+__global__ void CalculateErrorUpdateXKernel(float *X, float *X_new, float *error, size_t x_size)
 {
     // Error ser shared? ou ter um vetor qual e somado ao final
     // Precisa tratar concorrencia e corrida.
