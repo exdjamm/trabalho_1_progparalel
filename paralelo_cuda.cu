@@ -131,12 +131,59 @@ __global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new, 
 {
     // Talvez fazer sum ser um variavel _shared
     // ou fazer cada kernel calcular seu proprio sum
+    // mapear cada equação do sistema para uma thread;
+    size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+    const size_t A_pos_ii = tid * x_size + tid;
+    float sum = 0; // ????
+
+    if (tid >= x_size)
+        return;
+
+    // Valores constante para a thread
+    const float B_value = B[tid];
+    const float A_ii = A[A_pos_ii];
+    const float X_value = X[tid];
+
+    // Calculo de sum;
+    for (size_t j = 0; j < x_size; j++)
+    {
+        size_t A_pos = tid * x_size + j;
+        sum += A[A_pos] * X_value;
+    }
+
+    // Sem necessidade de sincronizacoa, cada thread e bloco trabalho individualmente.
+    X_new[tid] = (B_value - sum) / A_ii;
 }
 
 __global__ void CalculateErrorUpdateXKernel(float *X, float *X_new, float *error, size_t x_size)
 {
-    // Error ser shared? ou ter um vetor qual e somado ao final
-    // Precisa tratar concorrencia e corrida.
+    // O error saira em um vetor para cada bloco
+    // Cada valor X e independe para cada thread, pode ser modificado sem problemas.
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    __shared__ float error_sh;
+    float value;
+
+    if (tid >= x_size)
+        return;
+
+    if (tid == 0)
+    {
+        error_sh = 0;
+    }
+    __syncthreads();
+
+    value = powf(X_new[tid] - X[tid], 2);
+
+    atomicAdd(&error_sh, value);
+    __syncthreads();
+
+    X[tid] = X_new[tid];
+
+    if (tid == 0)
+    {
+        error[blockIdx.x] = error_sh;
+    }
+    __syncthreads();
 }
 
 void init_timer()
