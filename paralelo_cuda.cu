@@ -200,3 +200,39 @@ void finish_timer()
 
     cudaEventElapsedTime(&elapsed_time, time_start, time_end);
 }
+
+int load_file(string filename, Matrix<float> &A, vector<float> &vec)
+{
+    FILE *fp = freopen(filename.c_str(), "r", stdin);
+    if (fp == nullptr)
+    {
+        cout << "Nao foi possivel abrir o arquivo: " << filename << endl;
+        return 1;
+    }
+
+    string line;
+    unsigned int row_input, col_input;
+    float value;
+
+    scanf("%ux%u\n", &row_input, &col_input);
+
+    A.set_cols_number(col_input);
+    A.set_rows_number(row_input);
+
+    for (size_t i = 0; i < row_input * col_input; i++)
+    {
+        scanf("%f;", &value);
+        A.push(value);
+    }
+
+    scanf("%ux%u\n", &row_input, &col_input);
+
+    for (size_t i = 0; i < row_input * col_input; i++)
+    {
+        scanf("%f;", &value);
+        vec.push_back(value);
+    }
+
+    fclose(fp);
+    return 0;
+}
