@@ -101,7 +101,7 @@ int main(int argc, char const *argv[])
         cudaDeviceSynchronize();
 
         iter++;
-    } while (iter < iterations && error < epsilon);
+    } while (iter < iterations && epsilon < error);
     finish_timer();
 
     cudaMemcpy(X.data(), d_X, sizeof(float) * X.size(), cudaMemcpyDeviceToHost);
