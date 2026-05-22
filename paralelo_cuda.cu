@@ -143,6 +143,16 @@ ERROR:
     exit(EXIT_FAILURE);
 }
 
+__global__ void zeroed(float *X, size_t x_size)
+{
+    size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (tid >= x_size)
+        return;
+
+    X[tid] = 0;
+}
+
 __global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new, size_t x_size)
 {
     // Talvez fazer sum ser um variavel _shared
