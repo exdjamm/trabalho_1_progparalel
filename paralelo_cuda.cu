@@ -22,6 +22,8 @@ void finish_timer();
 
 int load_file(string filename, Matrix<float> &A, vector<float> &vec);
 
+__global__ void zeroed(float *X, size_t x_size);
+
 __global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new, size_t x_size);
 __global__ void CalculateErrorUpdateXKernel(float *X, float *X_new, float *error, size_t x_size);
 
@@ -82,7 +84,7 @@ int main(int argc, char const *argv[])
 
     cudaMalloc((void **)&d_error, sizeof(float) * block_number);
 
-    // TODO: Fazer a copia de valores.
+    zeroed<<<block_number, thread_number>>>(d_X, n);
 
     // Todo trabalho realizado na GPU, somente copia X ao final.
     init_timer();
