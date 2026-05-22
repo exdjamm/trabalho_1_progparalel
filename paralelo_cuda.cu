@@ -84,6 +84,11 @@ int main(int argc, char const *argv[])
 
     cudaMalloc((void **)&d_error, sizeof(float) * block_number);
 
+    // Copia A e B para device.
+    cudaMemcpy(d_A, A.data(), sizeof(float) * X.size(), cudaMemcpyDeviceToHost);
+    cudaMemcpy(d_B, B.data(), sizeof(float) * B.size(), cudaMemcpyDeviceToHost);
+
+    // Inicializa X com zeros
     zeroed<<<block_number, thread_number>>>(d_X, n);
 
     // Todo trabalho realizado na GPU, somente copia X ao final.
