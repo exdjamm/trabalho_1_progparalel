@@ -33,6 +33,8 @@ public:
     unsigned int cols_number();
     unsigned int rows_number();
 
+    K *data();
+
     void set_cols_number(unsigned int);
     void set_rows_number(unsigned int);
 };
@@ -115,6 +117,12 @@ template <typename K>
 unsigned int Matrix<K>::rows_number()
 {
     return this->rows;
+}
+
+template <typename K>
+inline K *Matrix<K>::data()
+{
+    return this->matrix.data();
 }
 
 template <typename K>
