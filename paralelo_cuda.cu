@@ -236,13 +236,10 @@ void errorKernel(
 
     if (tid < n)
     {
-        float diff =
-            X_new[tid] - X[tid];
+        float diff =  X_new[tid] - X[tid];
 
         //atomic necessário dado que várias threads podem tentar escrever ao mesmo tempo
-        atomicAdd(
-            &block_error,
-            diff * diff);
+        atomicAdd( &block_error, diff * diff);
 
         // atualiza X
         X[tid] = X_new[tid];
