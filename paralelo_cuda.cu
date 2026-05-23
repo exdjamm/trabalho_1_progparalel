@@ -247,6 +247,7 @@ void errorKernel(
 
     __syncthreads();
 
+    //cada bloco escreve q valor no vetor global de erros parciais
     if (threadIdx.x == 0)
     {
         error[blockIdx.x] = block_error;
