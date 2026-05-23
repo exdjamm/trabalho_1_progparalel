@@ -141,6 +141,10 @@ int main(int argc, char const *argv[])
 
         error = sqrtf(error);
 
+#ifdef SHOW_ITER_ERROR_
+        printf("%i; %.2f;\n", iter, error);
+#endif
+
         iter++;
 
     } while (iter < iterations && error > epsilon);
