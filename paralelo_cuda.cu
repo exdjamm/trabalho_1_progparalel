@@ -58,7 +58,7 @@ int main(int argc, char const *argv[])
 
     const unsigned int n = B.size();
 
-    const unsigned int blocks = (n + threads - 1) / threads; //garante ter blocos suficientes para processar todos os N elementos com X threads por bloco, garante ter uma thread para cada elemento também
+    const unsigned int blocks = (n + threads - 1) / threads; // garante ter blocos suficientes para processar todos os N elementos com X threads por bloco, garante ter uma thread para cada elemento também
 
     vector<float> X(n, 0.0f);
 
@@ -68,7 +68,7 @@ int main(int argc, char const *argv[])
     float *d_X_new;
     float *d_error;
 
-    //garantir espaços na gpu na memória compartilhada pelos blocos -- todos blocos tem acesso 
+    // garantir espaços na gpu na memória compartilhada pelos blocos -- todos blocos tem acesso
     cudaMalloc((void **)&d_A, sizeof(float) * n * n);
 
     cudaMalloc((void **)&d_B, sizeof(float) * n);
@@ -77,9 +77,9 @@ int main(int argc, char const *argv[])
 
     cudaMalloc((void **)&d_X_new, sizeof(float) * n);
 
-    cudaMalloc((void **)&d_error, sizeof(float) * blocks); //cada bloco calcula um erro parcial, depois soma tudo no host pra calcular o erro total
+    cudaMalloc((void **)&d_error, sizeof(float) * blocks); // cada bloco calcula um erro parcial, depois soma tudo no host pra calcular o erro total
 
-    //copia valores pra gpu
+    // copia valores pra gpu
     cudaMemcpy(
         d_A,
         A.data(),
@@ -92,11 +92,11 @@ int main(int argc, char const *argv[])
         sizeof(float) * n,
         cudaMemcpyHostToDevice);
 
-    //inicializa dx e d_X_new com 0.0f
+    // inicializa dx e d_X_new com 0.0f
     initializeVector<<<blocks, threads>>>(d_X, n);
     initializeVector<<<blocks, threads>>>(d_X_new, n);
 
-    //cria buffer pra receber erros parciais de cada bloco
+    // cria buffer pra receber erros parciais de cada bloco
     vector<float> error_host(blocks);
 
     float error = 0.0f;
@@ -114,7 +114,7 @@ int main(int argc, char const *argv[])
             d_X_new,
             n);
 
-        //esperar tudo acabar
+        // esperar tudo acabar
         cudaDeviceSynchronize();
 
         errorKernel<<<blocks, threads>>>(
@@ -147,25 +147,26 @@ int main(int argc, char const *argv[])
 
     finish_timer();
 
-    //traz soluções para cpu
+    // traz soluções para cpu
     cudaMemcpy(
         X.data(),
         d_X,
         sizeof(float) * n,
         cudaMemcpyDeviceToHost);
 
-    printf("\nResultado:\n");
+    printf("X:");
 
     for (size_t i = 0; i < n; i++)
     {
-        printf("x[%zu] = %f\n", i, X[i]);
+        printf(" %f,", X[i]);
     }
+    printf("\n");
 
     printf("\nIteracoes: %u\n", iter);
     printf("Erro: %f\n", error);
     printf("Tempo: %f ms\n", elapsed_time);
 
-    //libera memorioa alocada na gpu
+    // libera memorioa alocada na gpu
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_X);
@@ -175,31 +176,29 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-__global__
-void initializeVector(float *X, size_t n)
+__global__ void initializeVector(float *X, size_t n)
 {
-    //builda indice global pra threads
+    // builda indice global pra threads
     size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    //não inicialiar em threads que não serão usadas (caso sobrem threads)
+    // não inicialiar em threads que não serão usadas (caso sobrem threads)
     if (tid >= n)
         return;
 
     X[tid] = 0.0f;
 }
 
-__global__
-void jacobiKernel(
+__global__ void jacobiKernel(
     float *A,
     float *B,
     float *X,
     float *X_new,
     size_t n)
 {
-    //builda indice global pra threads
+    // builda indice global pra threads
     size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    //não fazer nada em threads que não serão usadas (caso sobrem threads)
+    // não fazer nada em threads que não serão usadas (caso sobrem threads)
     if (tid >= n)
         return;
 
@@ -207,7 +206,7 @@ void jacobiKernel(
 
     for (size_t j = 0; j < n; j++)
     {
-        //ignorar, pois tid = linha do sistema, não devemos usar a diagonal
+        // ignorar, pois tid = linha do sistema, não devemos usar a diagonal
         if (j != tid)
         {
             sum += A[tid * n + j] * X[j];
@@ -217,8 +216,7 @@ void jacobiKernel(
     X_new[tid] = (B[tid] - sum) / A[tid * n + tid];
 }
 
-__global__
-void errorKernel(
+__global__ void errorKernel(
     float *X,
     float *X_new,
     float *error,
@@ -226,10 +224,10 @@ void errorKernel(
 {
     size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    //variavel compartilhada por bloco, necessário para somar erro local (threads do mesmo bloco)
+    // variavel compartilhada por bloco, necessário para somar erro local (threads do mesmo bloco)
     __shared__ float block_error;
 
-    //apenas a primeira thread do bloco inicializa com zero
+    // apenas a primeira thread do bloco inicializa com zero
     if (threadIdx.x == 0)
     {
         block_error = 0.0f;
@@ -239,10 +237,10 @@ void errorKernel(
 
     if (tid < n)
     {
-        float diff =  X_new[tid] - X[tid];
+        float diff = X_new[tid] - X[tid];
 
-        //atomic necessário dado que várias threads podem tentar escrever ao mesmo tempo
-        atomicAdd( &block_error, diff * diff);
+        // atomic necessário dado que várias threads podem tentar escrever ao mesmo tempo
+        atomicAdd(&block_error, diff * diff);
 
         // atualiza X
         X[tid] = X_new[tid];
@@ -250,7 +248,7 @@ void errorKernel(
 
     __syncthreads();
 
-    //cada bloco escreve 1 valor no vetor global de erros parciais
+    // cada bloco escreve 1 valor no vetor global de erros parciais
     if (threadIdx.x == 0)
     {
         error[blockIdx.x] = block_error;
@@ -269,10 +267,10 @@ void finish_timer()
 {
     cudaEventRecord(time_end, 0);
 
-    //garante que tudo terminou antes de calcular o tempo
+    // garante que tudo terminou antes de calcular o tempo
     cudaEventSynchronize(time_end);
 
-    //calcula diferença
+    // calcula diferença
     cudaEventElapsedTime(
         &elapsed_time,
         time_start,
