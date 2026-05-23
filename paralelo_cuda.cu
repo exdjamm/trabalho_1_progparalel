@@ -223,8 +223,10 @@ void errorKernel(
 {
     size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
 
+    //variavel compartilhada por bloco, necessário para somar erro local (threads do mesmo bloco)
     __shared__ float block_error;
 
+    //apenas a primeira thread do bloco inicializa com zero
     if (threadIdx.x == 0)
     {
         block_error = 0.0f;
@@ -237,6 +239,7 @@ void errorKernel(
         float diff =
             X_new[tid] - X[tid];
 
+        //atomic necessário dado que várias threads podem tentar escrever ao mesmo tempo
         atomicAdd(
             &block_error,
             diff * diff);
