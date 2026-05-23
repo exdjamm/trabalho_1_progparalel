@@ -3,15 +3,14 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
-#include "vector.hpp"
 #include "matrix.hpp"
 
-#define ARG_NUMBER 5
-
 using namespace std;
+
+#define ARG_NUMBER 5
 
 float elapsed_time;
 cudaEvent_t time_start;
@@ -20,250 +19,301 @@ cudaEvent_t time_end;
 void init_timer();
 void finish_timer();
 
-int load_file(string filename, Matrix<float> &A, vector<float> &vec);
+int load_file(string filename, Matrix<float> &A, vector<float> &B);
 
-__global__ void zeroed(float *X, size_t x_size);
+__global__ void initializeVector(float *X, size_t n);
 
-__global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new, size_t x_size);
-__global__ void CalculateErrorUpdateXKernel(float *X, float *X_new, float *error, size_t x_size);
+__global__ void jacobiKernel(
+    float *A,
+    float *B,
+    float *X,
+    float *X_new,
+    size_t n);
+
+__global__ void errorKernel(
+    float *X,
+    float *X_new,
+    float *error,
+    size_t n);
 
 int main(int argc, char const *argv[])
 {
     if (argc != ARG_NUMBER)
     {
-        cout << "./paralelo.run file_matrix_A file_vector_B iterations epsilon thread_number" << endl;
-        exit(EXIT_FAILURE);
+        cout << "./jacobi matrix_file iterations epsilon threads" << endl;
+        return EXIT_FAILURE;
     }
 
-    // TODO: Talvez fazer uma classe com MatrixDevice qual ja trabalha com cudaMalloc e cudaFree
-    // para nao ter trabalhar com indice row*i + j e verificar barreiras
-
-    Matrix<float> A;           // Host
-    vector<float> B, X, X_new; // Host
-
-    float *d_A;     // Device
-    float *d_B;     // Device
-    float *d_X;     // Device
-    float *d_X_new; // Device
+    Matrix<float> A;
+    vector<float> B;
 
     if (load_file(argv[1], A, B))
-        exit(EXIT_FAILURE);
-
-    X.assign(B.size(), 0.0);
-    X_new.assign(B.size(), 0.0);
+    {
+        return EXIT_FAILURE;
+    }
 
     const unsigned int iterations = atoi(argv[2]);
     const float epsilon = atof(argv[3]);
-    const unsigned int thread_number = atoi(argv[4]);
+    const unsigned int threads = atoi(argv[4]);
 
-    // TODO: Decidir como sera divido os blocos
-    const unsigned int block_number = (B.size() + thread_number - 1) / thread_number;
+    const unsigned int n = B.size();
 
-    printf("Ordem do Sistema: %d X %d\n", A.rows_number(), A.cols_number());
-    printf("Maximo de Iteracoes: %d\n", iterations);
-    printf("Epsilon: %f\n", epsilon);
-    printf("Numero de Blocos: %d\n", block_number);
-    printf("Numero de Threads: %d\n", thread_number);
+    const unsigned int blocks = (n + threads - 1) / threads; //garante ter blocos suficientes para processar todos os N elementos com X threads por bloco, garante ter uma thread para cada elemento também
 
-    // Cuda malloc
-    cudaMalloc((void **)&d_A, sizeof(float) * A.cols_number() * A.rows_number());
-    cudaMalloc((void **)&d_B, sizeof(float) * B.size());
-    cudaMalloc((void **)&d_X, sizeof(float) * X.size());
-    cudaMalloc((void **)&d_X_new, sizeof(float) * X_new.size());
+    vector<float> X(n, 0.0f);
 
-    unsigned int n = B.size();
+    float *d_A;
+    float *d_B;
+    float *d_X;
+    float *d_X_new;
+    float *d_error;
+
+    //garantir espaços na gpu na memória compartilhada pelos blocos -- todos blocos tem acesso 
+    cudaMalloc((void **)&d_A, sizeof(float) * n * n);
+
+    cudaMalloc((void **)&d_B, sizeof(float) * n);
+
+    cudaMalloc((void **)&d_X, sizeof(float) * n);
+
+    cudaMalloc((void **)&d_X_new, sizeof(float) * n);
+
+    cudaMalloc((void **)&d_error, sizeof(float) * blocks); //cada bloco calcula um erro parcial, depois soma tudo no host pra calcular o erro total
+
+    //copia valores pra gpu
+    cudaMemcpy(
+        d_A,
+        A.data(),
+        sizeof(float) * n * n,
+        cudaMemcpyHostToDevice);
+
+    cudaMemcpy(
+        d_B,
+        B.data(),
+        sizeof(float) * n,
+        cudaMemcpyHostToDevice);
+
+    //inicializa dx e d_X_new com 0.0f
+    initializeVector<<<blocks, threads>>>(d_X, n);
+    initializeVector<<<blocks, threads>>>(d_X_new, n);
+
+    //cria buffer pra receber erros parciais de cada bloco
+    vector<float> error_host(blocks);
+
+    float error = 0.0f;
+
     unsigned int iter = 0;
 
-    float error;               // Host
-    float *error_array = NULL; // Host
-    float *d_error;            // Device
-
-    error_array = (float *)calloc(sizeof(float), block_number);
-    if (error_array == NULL)
-        goto ERROR;
-
-    cudaMalloc((void **)&d_error, sizeof(float) * block_number);
-
-    // Copia A e B para device.
-    cudaMemcpy(d_A, A.data(), sizeof(float) * X.size(), cudaMemcpyDeviceToHost);
-    cudaMemcpy(d_B, B.data(), sizeof(float) * B.size(), cudaMemcpyDeviceToHost);
-
-    // Inicializa X com zeros
-    zeroed<<<block_number, thread_number>>>(d_X, n);
-
-    // Todo trabalho realizado na GPU, somente copia X ao final.
     init_timer();
+
     do
     {
-        error = 0;
-        CalculateXNewKernel<<<block_number, thread_number>>>(d_A, d_B, d_X, d_X_new, n);
+        jacobiKernel<<<blocks, threads>>>(
+            d_A,
+            d_B,
+            d_X,
+            d_X_new,
+            n);
+
+        //esperar tudo acabar
         cudaDeviceSynchronize();
 
-        CalculateErrorUpdateXKernel<<<block_number, thread_number>>>(d_X, d_X_new, d_error, n);
+        errorKernel<<<blocks, threads>>>(
+            d_X,
+            d_X_new,
+            d_error,
+            n);
+
         cudaDeviceSynchronize();
 
-        cudaMemcpy(&error_array, d_error, sizeof(float) * block_number, cudaMemcpyDeviceToHost);
-        cudaDeviceSynchronize();
+        cudaMemcpy(
+            error_host.data(),
+            d_error,
+            sizeof(float) * blocks,
+            cudaMemcpyDeviceToHost);
 
-        for (size_t i = 0; i < block_number; i++)
+        error = 0.0f;
+
+        for (size_t i = 0; i < blocks; i++)
         {
-            error += error_array[i];
+            error += error_host[i];
         }
+
         error = sqrtf(error);
-        // cudaMemcpy(d_error, &error, sizeof(float), cudaMemcpyHostToDevice);
-        // cudaDeviceSynchronize();
-
-        // CalculateNewXKernel<<BLOCKS, THREADS>>(PARAMS);
-
-        // cudaMemcpy(X_new.data(), d_X_new, sizeof(float) * X.size(), cudaMemcpyDeviceToHost);
-
-        // CalculateErrorUpdateXKernel<<BLOCKS, THREADS>>(PARAMS);
-        // cudaMemcpy(&error, d_error, sizeof(float) * block_number, cudaMemcpyDeviceToHost);
-        // cudaDeviceSynchronize();
 
         iter++;
-    } while (iter < iterations && epsilon < error);
+
+    } while (iter < iterations && error > epsilon);
+
     finish_timer();
 
-    cudaMemcpy(X.data(), d_X, sizeof(float) * X.size(), cudaMemcpyDeviceToHost);
+    cudaMemcpy(
+        X.data(),
+        d_X,
+        sizeof(float) * n,
+        cudaMemcpyDeviceToHost);
 
-    printf("Iteracoes: %d\n", iter);
-    printf("Delta X: %f\n", error);
-    printf("Tempo: %.3f\n", elapsed_time); // Nao lembro se ele da em segundos ou milisegundos
+    printf("\nResultado:\n");
+
+    for (size_t i = 0; i < n; i++)
+    {
+        printf("x[%zu] = %f\n", i, X[i]);
+    }
+
+    printf("\nIteracoes: %u\n", iter);
+    printf("Erro: %f\n", error);
+    printf("Tempo: %f ms\n", elapsed_time);
 
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_X);
     cudaFree(d_X_new);
     cudaFree(d_error);
-    free(error_array);
 
     return 0;
-
-ERROR:
-    cudaFree(d_A);
-    cudaFree(d_B);
-    cudaFree(d_X);
-    cudaFree(d_X_new);
-    exit(EXIT_FAILURE);
 }
 
-__global__ void zeroed(float *X, size_t x_size)
+__global__
+void initializeVector(float *X, size_t n)
+{
+    //builda indice global pra threads
+    size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    //não inicialiar em threads que não serão usadas (caso sobrem threads)
+    if (tid >= n)
+        return;
+
+    X[tid] = 0.0f;
+}
+
+__global__
+void jacobiKernel(
+    float *A,
+    float *B,
+    float *X,
+    float *X_new,
+    size_t n)
+{
+    //builda indice global pra threads
+    size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    //não fazer nada em threads que não serão usadas (caso sobrem threads)
+    if (tid >= n)
+        return;
+
+    float sum = 0.0f;
+
+    for (size_t j = 0; j < n; j++)
+    {
+        //ignorar, pois tid = linha do sistema, não devemos usar a diagonal
+        if (j != tid)
+        {
+            sum += A[tid * n + j] * X[j];
+        }
+    }
+
+    X_new[tid] = (B[tid] - sum) / A[tid * n + tid];
+}
+
+__global__
+void errorKernel(
+    float *X,
+    float *X_new,
+    float *error,
+    size_t n)
 {
     size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (tid >= x_size)
-        return;
+    __shared__ float block_error;
 
-    X[tid] = 0;
-}
-
-__global__ void CalculateXNewKernel(float *A, float *B, float *X, float *X_new, size_t x_size)
-{
-    // Talvez fazer sum ser um variavel _shared
-    // ou fazer cada kernel calcular seu proprio sum
-    // mapear cada equação do sistema para uma thread;
-    size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-    const size_t A_pos_ii = tid * x_size + tid;
-    float sum = 0; // ????
-
-    if (tid >= x_size)
-        return;
-
-    // Valores constante para a thread
-    const float B_value = B[tid];
-    const float A_ii = A[A_pos_ii];
-    const float X_value = X[tid];
-
-    // Calculo de sum;
-    for (size_t j = 0; j < x_size; j++)
+    if (threadIdx.x == 0)
     {
-        size_t A_pos = tid * x_size + j;
-        sum += A[A_pos] * X_value;
+        block_error = 0.0f;
     }
 
-    // Sem necessidade de sincronizacoa, cada thread e bloco trabalho individualmente.
-    X_new[tid] = (B_value - sum) / A_ii;
-}
+    __syncthreads();
 
-__global__ void CalculateErrorUpdateXKernel(float *X, float *X_new, float *error, size_t x_size)
-{
-    // O error saira em um vetor para cada bloco
-    // Cada valor X e independe para cada thread, pode ser modificado sem problemas.
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    __shared__ float error_sh;
-    float value;
-
-    if (tid >= x_size)
-        return;
-
-    if (tid == 0)
+    if (tid < n)
     {
-        error_sh = 0;
+        float diff =
+            X_new[tid] - X[tid];
+
+        atomicAdd(
+            &block_error,
+            diff * diff);
+
+        // atualiza X
+        X[tid] = X_new[tid];
     }
+
     __syncthreads();
 
-    value = powf(X_new[tid] - X[tid], 2);
-
-    atomicAdd(&error_sh, value);
-    __syncthreads();
-
-    X[tid] = X_new[tid];
-
-    if (tid == 0)
+    if (threadIdx.x == 0)
     {
-        error[blockIdx.x] = error_sh;
+        error[blockIdx.x] = block_error;
     }
-    __syncthreads();
 }
 
 void init_timer()
 {
     cudaEventCreate(&time_start);
     cudaEventCreate(&time_end);
+
     cudaEventRecord(time_start, 0);
 }
 
 void finish_timer()
 {
     cudaEventRecord(time_end, 0);
+
+    //garante que tudo terminou antes de calcular o tempo
     cudaEventSynchronize(time_end);
 
-    cudaEventElapsedTime(&elapsed_time, time_start, time_end);
+    //calcula diferença
+    cudaEventElapsedTime(
+        &elapsed_time,
+        time_start,
+        time_end);
 }
 
-int load_file(string filename, Matrix<float> &A, vector<float> &vec)
+int load_file(
+    string filename,
+    Matrix<float> &A,
+    vector<float> &B)
 {
-    FILE *fp = freopen(filename.c_str(), "r", stdin);
+    FILE *fp =
+        freopen(filename.c_str(), "r", stdin);
+
     if (fp == nullptr)
     {
-        cout << "Nao foi possivel abrir o arquivo: " << filename << endl;
+        cout << "Erro ao abrir arquivo\n";
         return 1;
     }
 
-    string line;
-    unsigned int row_input, col_input;
+    unsigned int rows;
+    unsigned int cols;
+
     float value;
 
-    scanf("%ux%u\n", &row_input, &col_input);
+    scanf("%ux%u\n", &rows, &cols);
 
-    A.set_cols_number(col_input);
-    A.set_rows_number(row_input);
+    A.set_rows_number(rows);
+    A.set_cols_number(cols);
 
-    for (size_t i = 0; i < row_input * col_input; i++)
+    for (size_t i = 0; i < rows * cols; i++)
     {
         scanf("%f;", &value);
         A.push(value);
     }
 
-    scanf("%ux%u\n", &row_input, &col_input);
+    scanf("%ux%u\n", &rows, &cols);
 
-    for (size_t i = 0; i < row_input * col_input; i++)
+    for (size_t i = 0; i < rows * cols; i++)
     {
         scanf("%f;", &value);
-        vec.push_back(value);
+        B.push_back(value);
     }
 
     fclose(fp);
+
     return 0;
 }
