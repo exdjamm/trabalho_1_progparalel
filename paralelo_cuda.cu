@@ -125,6 +125,7 @@ int main(int argc, char const *argv[])
 
         cudaDeviceSynchronize();
 
+        // copia erros parciais para error_host pra calcular o erro total
         cudaMemcpy(
             error_host.data(),
             d_error,
@@ -146,6 +147,7 @@ int main(int argc, char const *argv[])
 
     finish_timer();
 
+    //traz soluções para cpu
     cudaMemcpy(
         X.data(),
         d_X,
@@ -163,6 +165,7 @@ int main(int argc, char const *argv[])
     printf("Erro: %f\n", error);
     printf("Tempo: %f ms\n", elapsed_time);
 
+    //libera memorioa alocada na gpu
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_X);
@@ -247,7 +250,7 @@ void errorKernel(
 
     __syncthreads();
 
-    //cada bloco escreve q valor no vetor global de erros parciais
+    //cada bloco escreve 1 valor no vetor global de erros parciais
     if (threadIdx.x == 0)
     {
         error[blockIdx.x] = block_error;
