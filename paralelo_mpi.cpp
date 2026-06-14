@@ -14,11 +14,11 @@ int load_file(string filename, Matrix<float> &A, vector<float> &B);
 
 int main(int argc, char *argv[])
 {
-    MPI_Init(&argc, &argv);
+    MPI_Init(&argc, &argv); //inicializa os processos
 
     int rank, process_number;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &process_number);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); //define id (rank) para cada processo criado
+    MPI_Comm_size(MPI_COMM_WORLD, &process_number); //define o numero total de processos criados
 
     if (argc != ARG_NUMBER)
     {
@@ -37,12 +37,12 @@ int main(int argc, char *argv[])
     if (rank == 0)
     {
         if (load_file(argv[1], A, B))
-            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE); //mata todos os processos
 
         n = B.size();
     }
 
-    MPI_Bcast(&n, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&n, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD); //é bloqueante e serve para que o processo de rank 0 espalhe o valor de n para todos os processos
 
     unsigned int iterations = atoi(argv[2]);
     float epsilon = atof(argv[3]);
@@ -52,14 +52,14 @@ int main(int argc, char *argv[])
         if (rank == 0)
             cout << "Numero de linhas deve ser divisivel pelo numero de processos.\n";
 
-        MPI_Finalize();
+        MPI_Finalize(); //cada processo encerrará
         return EXIT_FAILURE;
     }
 
     unsigned int localRows = n / process_number;
 
-    vector<float> localA(localRows * n);
-    vector<float> localB(localRows);
+    vector<float> localA(localRows * n); //matriz que o processo vai trabalhar
+    vector<float> localB(localRows); //partes do vetor b que o processo vai trabalhar
 
     MPI_Scatter(
         rank == 0 ? A.data() : nullptr,
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
         localRows * n,
         MPI_FLOAT,
         0,
-        MPI_COMM_WORLD);
+        MPI_COMM_WORLD); //é bloqueante e serve para que o processo de rank 0 espalhe partes da matriz A para cada processo
 
     MPI_Scatter(
         rank == 0 ? B.data() : nullptr,
@@ -79,11 +79,11 @@ int main(int argc, char *argv[])
         localRows,
         MPI_FLOAT,
         0,
-        MPI_COMM_WORLD);
+        MPI_COMM_WORLD); //é bloqueante e serve para que o processo de rank 0 espalhe partes do vetor B para cada processo.
 
     vector<float> Xold(n, 0.0f);
     vector<float> Xnew(n, 0.0f);
-    vector<float> localX(localRows);
+    vector<float> localX(localRows); //cada processo vai calcular uma parte do vetor solução
 
     float error;
     unsigned int iter = 0;
@@ -96,14 +96,14 @@ int main(int argc, char *argv[])
 
         for (unsigned int i = 0; i < localRows; i++)
         {
-            unsigned int globalRow = rank * localRows + i;
+            unsigned int globalRow = rank * localRows + i; //saber qual linha da matriz original o processo está trabalhando
 
             float sum = 0.0f;
 
             for (unsigned int j = 0; j < n; j++)
             {
                 if (j != globalRow)
-                    sum += localA[i * n + j] * Xold[j];
+                    sum += localA[i * n + j] * Xold[j]; //i*n garante pegar elementos da linha correta, pois Local A está representado como vetor.
             }
 
             float diagonal = localA[i * n + globalRow];
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
                 MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
             }
 
-            localX[i] = (localB[i] - sum) / diagonal;
+            localX[i] = (localB[i] - sum) / diagonal; //escreve na solução local
         }
 
         MPI_Allgather(
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
             Xnew.data(),
             localRows,
             MPI_FLOAT,
-            MPI_COMM_WORLD);
+            MPI_COMM_WORLD); //é bloqueante e serve para que todos compartilhem suas soluções locais para formar o vetor solução completo em cada processo
 
         for (unsigned int i = 0; i < localRows; i++)
         {
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
             1,
             MPI_FLOAT,
             MPI_SUM,
-            MPI_COMM_WORLD);
+            MPI_COMM_WORLD); //soma erros locais para obter o erro global
 
         error = sqrt(error);
 
